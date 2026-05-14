@@ -1,9 +1,33 @@
 const express = require('express');
+const { body, param, validationResult } = require('express-validator');
 const router = express.Router();
 const pool = require('../db');
 const auth = require('../middleware/auth');
 
 router.use(auth);
+
+// Helper: send 400 if express-validator found errors
+function handleValidation(req, res) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  return null;
+}
+
+// Reusable vehicle body validators
+const vehicleBodyValidators = [
+  body('vehicle_id').notEmpty().withMessage('vehicle_id is required').isString().trim(),
+  body('type').notEmpty().withMessage('type is required').isString().trim(),
+  body('make').notEmpty().withMessage('make is required').isString().trim(),
+  body('model').notEmpty().withMessage('model is required').isString().trim(),
+  body('year').notEmpty().withMessage('year is required').isInt({ min: 1900, max: 2100 }).withMessage('year must be a valid integer'),
+  body('vin').notEmpty().withMessage('vin is required').isLength({ min: 17, max: 17 }).withMessage('VIN must be exactly 17 characters'),
+  body('license_plate').notEmpty().withMessage('license_plate is required').isString().trim(),
+  body('mileage').optional().isInt({ min: 0 }).withMessage('mileage must be a non-negative integer'),
+  body('status').optional().isIn(['active', 'maintenance', 'inactive', 'retired']).withMessage('status must be one of: active, maintenance, inactive, retired'),
+  body('fuel_type').optional().isIn(['diesel', 'gasoline', 'electric', 'hybrid', 'cng', 'lpg']).withMessage('invalid fuel_type')
+];
 
 // GET /api/vehicles/stats/summary
 router.get('/stats/summary', async (req, res) => {
@@ -27,7 +51,10 @@ router.get('/stats/summary', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { status, type } = req.query;
-    let query = 'SELECT * FROM vehicles';
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
     const params = [];
     const conditions = [];
 
@@ -40,14 +67,21 @@ router.get('/', async (req, res) => {
       conditions.push(`type = $${params.length}`);
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
+    const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
 
-    query += ' ORDER BY vehicle_id ASC';
+    const countResult = await pool.query(`SELECT COUNT(*) FROM vehicles${whereClause}`, params);
+    const total = parseInt(countResult.rows[0].count);
 
-    const result = await pool.query(query, params);
-    res.json(result.rows);
+    const dataParams = [...params, limit, offset];
+    const result = await pool.query(
+      `SELECT * FROM vehicles${whereClause} ORDER BY vehicle_id ASC LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+      dataParams
+    );
+
+    res.json({
+      data: result.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    });
   } catch (err) {
     console.error('List vehicles error:', err);
     res.status(500).json({ error: 'Internal server error.' });
@@ -70,8 +104,69 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// GET /api/vehicles/:id/maintenance-history
+// Returns all past AI predictions (from ai_predictions) and actual maintenance records
+// for a given vehicle, sorted newest first.
+router.get('/:id/maintenance-history', async (req, res) => {
+  try {
+    const vehicleId = req.params.id;
+
+    // Verify vehicle exists
+    const vehicleResult = await pool.query('SELECT id, vehicle_id, make, model, year FROM vehicles WHERE id = $1', [vehicleId]);
+    if (vehicleResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Vehicle not found.' });
+    }
+    const vehicle = vehicleResult.rows[0];
+
+    // Fetch actual maintenance records
+    const maintenanceResult = await pool.query(
+      `SELECT id, type, description, status, priority, scheduled_date, completed_date,
+              cost, technician, notes, created_at
+       FROM maintenance_records
+       WHERE vehicle_id = $1
+       ORDER BY COALESCE(scheduled_date, created_at::date) DESC, created_at DESC`,
+      [vehicleId]
+    );
+
+    // Fetch AI predictions linked to this vehicle
+    const predictionsResult = await pool.query(
+      `SELECT id, prediction_type, input_snapshot, analysis, created_at
+       FROM ai_predictions
+       WHERE vehicle_id = $1
+       ORDER BY created_at DESC`,
+      [vehicleId]
+    );
+
+    res.json({
+      vehicle: {
+        id: vehicle.id,
+        vehicle_id: vehicle.vehicle_id,
+        make_model: `${vehicle.make} ${vehicle.model} (${vehicle.year})`
+      },
+      maintenance_records: {
+        total: maintenanceResult.rows.length,
+        records: maintenanceResult.rows
+      },
+      ai_predictions: {
+        total: predictionsResult.rows.length,
+        records: predictionsResult.rows.map(r => ({
+          id: r.id,
+          prediction_type: r.prediction_type,
+          input_snapshot: r.input_snapshot,
+          analysis: r.analysis,
+          created_at: r.created_at
+        }))
+      }
+    });
+  } catch (err) {
+    console.error('Maintenance history error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 // POST /api/vehicles
-router.post('/', async (req, res) => {
+router.post('/', vehicleBodyValidators, async (req, res) => {
+  if (handleValidation(req, res)) return;
   try {
     const {
       vehicle_id, type, make, model, year, vin, license_plate,
@@ -96,7 +191,8 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/vehicles/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', vehicleBodyValidators.map(v => v.optional()), async (req, res) => {
+  if (handleValidation(req, res)) return;
   try {
     const {
       vehicle_id, type, make, model, year, vin, license_plate,

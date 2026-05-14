@@ -91,6 +91,161 @@ function jsonToMarkdown(obj, depth = 0) {
   return String(obj);
 }
 
+// Structured display for predictive maintenance JSON response
+function PredictiveMaintenanceDisplay({ data }) {
+  if (!data || !data.analysis) return null;
+
+  // Try to parse JSON from analysis text
+  let parsed = null;
+  try {
+    const stripped = data.analysis.replace(/```(?:json)?\n?/g, '').replace(/```/g, '').trim();
+    const match = stripped.match(/\{[\s\S]*\}/);
+    if (match) parsed = JSON.parse(match[0]);
+  } catch (e) {}
+
+  if (parsed && (parsed.predicted_failures || parsed.recommended_actions || parsed.risk_level || parsed.ninety_day_risk)) {
+    const riskColor = { high: 'var(--accent-red)', medium: '#f59e0b', low: 'var(--accent-green)' };
+    const risk = (parsed.risk_level || parsed.ninety_day_risk || '').toLowerCase();
+    return (
+      <div style={{ padding: '12px 0' }}>
+        {parsed.risk_level || parsed.ninety_day_risk ? (
+          <div style={{ marginBottom: '12px', padding: '10px 14px', background: `${riskColor[risk] || '#888'}20`, borderLeft: `4px solid ${riskColor[risk] || '#888'}`, borderRadius: '4px' }}>
+            <strong>90-Day Risk Level: </strong>
+            <span style={{ color: riskColor[risk] || '#888', fontWeight: 700, textTransform: 'uppercase' }}>{risk}</span>
+          </div>
+        ) : null}
+        {parsed.predicted_failures && Array.isArray(parsed.predicted_failures) && (
+          <div style={{ marginBottom: '12px' }}>
+            <strong style={{ display: 'block', marginBottom: '6px' }}>Predicted Failures</strong>
+            {parsed.predicted_failures.map((f, i) => (
+              <div key={i} style={{ padding: '6px 10px', marginBottom: '4px', background: 'var(--surface-raised, #f3f4f6)', borderRadius: '4px', fontSize: '0.875rem' }}>
+                {typeof f === 'string' ? f : JSON.stringify(f)}
+              </div>
+            ))}
+          </div>
+        )}
+        {parsed.recommended_actions && Array.isArray(parsed.recommended_actions) && (
+          <div>
+            <strong style={{ display: 'block', marginBottom: '6px' }}>Recommended Actions</strong>
+            {parsed.recommended_actions.map((a, i) => (
+              <div key={i} style={{ padding: '6px 10px', marginBottom: '4px', background: '#dcfce720', border: '1px solid #16a34a40', borderRadius: '4px', fontSize: '0.875rem' }}>
+                {typeof a === 'string' ? a : JSON.stringify(a)}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Fall back to markdown display
+  return <AIResponse data={data} loading={false} error="" />;
+}
+
+// Structured compliance risk display
+function ComplianceDisplay({ data }) {
+  if (!data || !data.analysis) return null;
+
+  // Try to extract risk score from analysis text
+  const scoreMatch = data.analysis.match(/risk score[:\s]*(\d+)[/\s]*10/i) || data.analysis.match(/(\d+)\s*\/\s*10/);
+  const fineMatch = data.analysis.match(/\$[\d,]+(?:\s*(?:to|-)\s*\$[\d,]+)?/);
+  const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
+
+  return (
+    <div style={{ padding: '12px 0' }}>
+      {score !== null && (
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
+            <strong>Compliance Risk Score:</strong>
+            <span style={{
+              fontSize: '1.5rem', fontWeight: 700,
+              color: score >= 7 ? 'var(--accent-red)' : score >= 4 ? '#f59e0b' : 'var(--accent-green)'
+            }}>{score}/10</span>
+            <span style={{ padding: '2px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600,
+              background: score >= 7 ? '#fee2e2' : score >= 4 ? '#fef3c7' : '#dcfce7',
+              color: score >= 7 ? '#dc2626' : score >= 4 ? '#d97706' : '#16a34a'
+            }}>{score >= 7 ? 'HIGH RISK' : score >= 4 ? 'MEDIUM RISK' : 'LOW RISK'}</span>
+          </div>
+          <div style={{ height: '8px', background: 'var(--surface-raised, #e5e7eb)', borderRadius: '999px', overflow: 'hidden' }}>
+            <div style={{ height: '100%', width: `${score * 10}%`, background: score >= 7 ? 'var(--accent-red)' : score >= 4 ? '#f59e0b' : 'var(--accent-green)', borderRadius: '999px', transition: 'width 0.5s' }} />
+          </div>
+        </div>
+      )}
+      {fineMatch && (
+        <div style={{ marginBottom: '12px', padding: '8px 14px', background: '#fff7ed', border: '1px solid #fdba7480', borderRadius: '6px', fontSize: '0.875rem' }}>
+          <strong>Estimated Fine Exposure: </strong><span style={{ color: '#c2410c', fontWeight: 600 }}>{fineMatch[0]}</span>
+        </div>
+      )}
+      <AIResponse data={data} loading={false} error="" />
+    </div>
+  );
+}
+
+// Fleet Replacement Scorer display
+function FleetReplacementDisplay({ data, loading, error }) {
+  if (loading) return <div className="ai-loading"><div className="spinner"></div><span className="ai-loading-text">Scoring replacement priority...</span></div>;
+  if (error) return <div className="ai-response"><p style={{ color: 'var(--accent-red)' }}>{error}</p></div>;
+  if (!data) return null;
+
+  // Try to extract replacement score from analysis
+  const scoreMatch = data.analysis && (
+    data.analysis.match(/replacement(?:\s+priority)?\s+score[:\s]*(\d+)/i) ||
+    data.analysis.match(/score[:\s]*(\d+)\s*\/\s*100/i) ||
+    data.analysis.match(/\b(\d{1,2}|100)\b/)
+  );
+  const score = scoreMatch ? parseInt(scoreMatch[1]) : null;
+
+  const retireMatch = data.analysis && data.analysis.match(/retire[:\s]+([^\n.]+)/i);
+  const lifeMatch = data.analysis && data.analysis.match(/(?:estimated\s+)?remaining\s+life[:\s]+([^\n.]+)/i);
+  const savingsMatch = data.analysis && data.analysis.match(/(?:cost\s+savings|savings)[:\s]+([^\n.]+)/i);
+
+  const gaugeColor = score !== null ? (score < 30 ? '#16a34a' : score < 70 ? '#d97706' : '#dc2626') : '#6b7280';
+
+  return (
+    <div style={{ padding: '12px 0' }}>
+      {score !== null && (
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+            <strong>Replacement Priority Score:</strong>
+            <span style={{ fontSize: '2rem', fontWeight: 700, color: gaugeColor }}>{score}</span>
+            <span style={{ fontSize: '1rem', color: 'var(--text-secondary)' }}>/100</span>
+          </div>
+          <div style={{ height: '10px', background: 'linear-gradient(to right, #16a34a, #d97706, #dc2626)', borderRadius: '999px', position: 'relative' }}>
+            <div style={{
+              position: 'absolute', top: '50%', left: `${score}%`, transform: 'translate(-50%, -50%)',
+              width: '16px', height: '16px', background: '#1e293b', borderRadius: '50%', border: '2px solid white', boxShadow: '0 0 4px rgba(0,0,0,0.4)'
+            }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+            <span>Keep (Low)</span><span>Monitor (Medium)</span><span>Replace (High)</span>
+          </div>
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
+        {retireMatch && (
+          <div style={{ padding: '6px 14px', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 600,
+            background: retireMatch[1].toLowerCase().includes('retire') ? '#fee2e2' : '#dcfce7',
+            color: retireMatch[1].toLowerCase().includes('retire') ? '#dc2626' : '#16a34a'
+          }}>
+            {retireMatch[1].trim()}
+          </div>
+        )}
+        {lifeMatch && (
+          <div style={{ padding: '6px 14px', background: '#f0f9ff', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 600, color: '#0369a1' }}>
+            Remaining Life: {lifeMatch[1].trim()}
+          </div>
+        )}
+        {savingsMatch && (
+          <div style={{ padding: '6px 14px', background: '#f0fdf4', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 600, color: '#15803d' }}>
+            Potential Savings: {savingsMatch[1].trim()}
+          </div>
+        )}
+      </div>
+      <AIResponse data={data} loading={false} error="" />
+    </div>
+  );
+}
+
 export default function AIInsights() {
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -124,13 +279,18 @@ export default function AIInsights() {
   const [driverLoading, setDriverLoading] = useState(false);
   const [driverError, setDriverError] = useState('');
 
+  const [replacementVehicle, setReplacementVehicle] = useState('');
+  const [replacementData, setReplacementData] = useState(null);
+  const [replacementLoading, setReplacementLoading] = useState(false);
+  const [replacementError, setReplacementError] = useState('');
+
   useEffect(() => {
     fetchVehicles();
     fetchDrivers();
   }, []);
 
-  const fetchVehicles = async () => { try { const d = await api.getVehicles(); setVehicles(Array.isArray(d) ? d : d.vehicles || d.data || []); } catch (e) {} };
-  const fetchDrivers = async () => { try { const d = await api.getDrivers(); setDrivers(Array.isArray(d) ? d : d.drivers || d.data || []); } catch (e) {} };
+  const fetchVehicles = async () => { try { const d = await api.getVehicles(); setVehicles(Array.isArray(d) ? d : d.data || d.vehicles || []); } catch (e) {} };
+  const fetchDrivers = async () => { try { const d = await api.getDrivers(); setDrivers(Array.isArray(d) ? d : d.data || d.drivers || []); } catch (e) {} };
 
   const handlePredict = async () => {
     if (!predictVehicle) return;
@@ -171,6 +331,13 @@ export default function AIInsights() {
     setDriverLoading(false);
   };
 
+  const handleReplacement = async () => {
+    if (!replacementVehicle) return;
+    setReplacementLoading(true); setReplacementError(''); setReplacementData(null);
+    try { const d = await api.scoreFleetReplacement(replacementVehicle); setReplacementData(d); } catch (e) { setReplacementError(e.message); }
+    setReplacementLoading(false);
+  };
+
   return (
     <div>
       <div className="page-header">
@@ -192,7 +359,9 @@ export default function AIInsights() {
               Analyze
             </button>
           </div>
-          <AIResponse data={predictData} loading={predictLoading} error={predictError} />
+          {predictLoading && <div className="ai-loading"><div className="spinner"></div><span className="ai-loading-text">AI is analyzing...</span></div>}
+          {predictError && <div className="ai-response"><p style={{ color: 'var(--accent-red)' }}>{predictError}</p></div>}
+          {predictData && <PredictiveMaintenanceDisplay data={predictData} />}
         </AISection>
 
         {/* Fleet Analytics */}
@@ -248,7 +417,9 @@ export default function AIInsights() {
               Check Compliance
             </button>
           </div>
-          <AIResponse data={complianceData} loading={complianceLoading} error={complianceError} />
+          {complianceLoading && <div className="ai-loading"><div className="spinner"></div><span className="ai-loading-text">AI is analyzing...</span></div>}
+          {complianceError && <div className="ai-response"><p style={{ color: 'var(--accent-red)' }}>{complianceError}</p></div>}
+          {complianceData && <ComplianceDisplay data={complianceData} />}
         </AISection>
 
         {/* Cost Analysis */}
@@ -276,6 +447,23 @@ export default function AIInsights() {
             </button>
           </div>
           <AIResponse data={driverData} loading={driverLoading} error={driverError} />
+        </AISection>
+
+        {/* Fleet Replacement Scorer */}
+        <AISection title="Fleet Replacement Scorer" icon="🔄">
+          <div className="ai-form">
+            <div className="form-group">
+              <label>Select Vehicle</label>
+              <select value={replacementVehicle} onChange={e => setReplacementVehicle(e.target.value)}>
+                <option value="">Choose a vehicle...</option>
+                {vehicles.map(v => <option key={v.id} value={v.id}>{v.vehicle_id} - {v.make} {v.model} ({v.year})</option>)}
+              </select>
+            </div>
+            <button className="btn btn-primary" onClick={handleReplacement} disabled={!replacementVehicle || replacementLoading}>
+              Score Replacement Priority
+            </button>
+          </div>
+          <FleetReplacementDisplay data={replacementData} loading={replacementLoading} error={replacementError} />
         </AISection>
       </div>
     </div>

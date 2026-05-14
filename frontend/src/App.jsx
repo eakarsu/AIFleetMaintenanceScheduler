@@ -15,6 +15,8 @@ import Scheduling from './components/Scheduling';
 import Costs from './components/Costs';
 import Alerts from './components/Alerts';
 import AIInsights from './components/AIInsights';
+import AIHistory from './components/AIHistory';
+import AIAdvanced from './components/AIAdvanced';
 import Tires from './components/Tires';
 import Inspections from './components/Inspections';
 import Warranties from './components/Warranties';
@@ -73,6 +75,8 @@ export default function App() {
     { path: '/activity-log', label: 'Activity Log', icon: '📜' },
     { path: '/profile', label: 'Profile', icon: '👤' },
     { path: '/ai-insights', label: 'AI Insights', icon: '🤖' },
+    { path: '/ai-advanced', label: 'AI Advanced', icon: '🧠' },
+    { path: '/ai-history', label: 'AI History', icon: '📜' },
   ];
 
   if (isLoginPage) {
@@ -152,6 +156,8 @@ export default function App() {
           <Route path="/activity-log" element={<ProtectedRoute><ActivityLog /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/ai-insights" element={<ProtectedRoute><AIInsights /></ProtectedRoute>} />
+          <Route path="/ai-advanced" element={<ProtectedRoute><AIAdvanced /></ProtectedRoute>} />
+          <Route path="/ai-history" element={<ProtectedRoute><AIHistory /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

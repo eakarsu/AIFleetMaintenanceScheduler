@@ -153,4 +153,43 @@ router.get('/drivers', auth, async (req, res) => {
   }
 });
 
+// GET /api/reports/fleet-summary.csv — CSV export of fleet summary
+router.get('/fleet-summary.csv', auth, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        v.vehicle_id,
+        v.make,
+        v.model,
+        v.year,
+        v.mileage,
+        v.status,
+        MAX(mr.completed_date) AS last_maintenance,
+        COALESCE(SUM(mr.cost), 0) AS total_maintenance_cost
+      FROM vehicles v
+      LEFT JOIN maintenance_records mr ON mr.vehicle_id = v.id
+      GROUP BY v.id, v.vehicle_id, v.make, v.model, v.year, v.mileage, v.status
+      ORDER BY v.vehicle_id
+    `);
+
+    const headers = ['vehicle_id', 'make', 'model', 'year', 'mileage', 'status', 'last_maintenance', 'total_maintenance_cost'];
+    const csvRows = [headers.join(',')];
+
+    for (const row of result.rows) {
+      const values = headers.map(h => {
+        const val = row[h] === null || row[h] === undefined ? '' : String(row[h]);
+        return val.includes(',') ? `"${val}"` : val;
+      });
+      csvRows.push(values.join(','));
+    }
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="fleet-summary.csv"');
+    res.send(csvRows.join('\n'));
+  } catch (err) {
+    console.error('Fleet summary CSV error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

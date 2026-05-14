@@ -14,14 +14,21 @@ export default function Vehicles() {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({ ...emptyForm });
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => { fetchItems(page); }, [page]);
 
-  const fetchItems = async () => {
+  const fetchItems = async (p = 1) => {
     setLoading(true);
     try {
-      const data = await api.getVehicles();
-      setItems(Array.isArray(data) ? data : data.vehicles || data.data || []);
+      const data = await api.getVehicles(p);
+      if (data && data.data) {
+        setItems(data.data);
+        setPagination(data.pagination);
+      } else {
+        setItems(Array.isArray(data) ? data : data.vehicles || []);
+      }
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -111,6 +118,13 @@ export default function Vehicles() {
               ))}
             </tbody>
           </table>
+          {pagination && pagination.totalPages > 1 && (
+            <div className="pagination-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
+              <button className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>Prev</button>
+              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)</span>
+              <button className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))} disabled={page >= pagination.totalPages}>Next</button>
+            </div>
+          )}
         </div>
       )}
 

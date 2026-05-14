@@ -1,15 +1,38 @@
 const express = require('express');
+const { body, validationResult } = require('express-validator');
 const router = express.Router();
 const pool = require('../db');
 const auth = require('../middleware/auth');
 
 router.use(auth);
 
+function handleValidation(req, res) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  return null;
+}
+
+const driverBodyValidators = [
+  body('name').optional().isString().trim(),
+  body('license_number').notEmpty().withMessage('license_number is required').isString().trim(),
+  body('first_name').notEmpty().withMessage('first_name is required').isString().trim(),
+  body('last_name').notEmpty().withMessage('last_name is required').isString().trim(),
+  body('email').optional().isEmail().withMessage('email must be valid'),
+  body('status').optional().isIn(['active', 'inactive', 'suspended']).withMessage('invalid status'),
+  body('violations').optional().isInt({ min: 0 }).withMessage('violations must be a non-negative integer'),
+  body('rating').optional().isFloat({ min: 0, max: 5 }).withMessage('rating must be between 0 and 5')
+];
+
 // GET /api/drivers
 router.get('/', async (req, res) => {
   try {
     const { status, license_type } = req.query;
-    let query = 'SELECT * FROM drivers';
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const offset = (page - 1) * limit;
+
     const params = [];
     const conditions = [];
 
@@ -22,14 +45,21 @@ router.get('/', async (req, res) => {
       conditions.push(`license_type = $${params.length}`);
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
+    const whereClause = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
 
-    query += ' ORDER BY last_name ASC, first_name ASC';
+    const countResult = await pool.query(`SELECT COUNT(*) FROM drivers${whereClause}`, params);
+    const total = parseInt(countResult.rows[0].count);
 
-    const result = await pool.query(query, params);
-    res.json(result.rows);
+    const dataParams = [...params, limit, offset];
+    const result = await pool.query(
+      `SELECT * FROM drivers${whereClause} ORDER BY last_name ASC, first_name ASC LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+      dataParams
+    );
+
+    res.json({
+      data: result.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+    });
   } catch (err) {
     console.error('List drivers error:', err);
     res.status(500).json({ error: 'Internal server error.' });
@@ -53,7 +83,8 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/drivers
-router.post('/', async (req, res) => {
+router.post('/', driverBodyValidators, async (req, res) => {
+  if (handleValidation(req, res)) return;
   try {
     const { employee_id, first_name, last_name, email, phone, license_number, license_type, license_expiry, status, hire_date, medical_card_expiry, violations, rating } = req.body;
 

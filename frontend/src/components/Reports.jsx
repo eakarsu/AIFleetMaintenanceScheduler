@@ -1,5 +1,12 @@
 import { useState, useEffect } from 'react';
+import {
+  BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+} from 'recharts';
 import { getReportVehicles, getReportMaintenance, getReportCosts, getReportFuel, getReportDrivers } from '../services/api';
+
+const PIE_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4', '#ec4899'];
+const tooltipStyle = { background: '#1e293b', border: '1px solid #334155', borderRadius: '6px', color: '#f1f5f9' };
 
 function downloadCSV(data, filename) {
   if (!data || data.length === 0) return;
@@ -181,6 +188,41 @@ export default function Reports() {
 
           {activeTab === 'costs' && costData && (
             <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: 16, marginBottom: 24 }}>
+                {costData.by_category?.length > 0 && (
+                  <div className="ai-card">
+                    <div className="ai-card-header"><h3>📊 Cost Distribution</h3></div>
+                    <div className="ai-card-body">
+                      <ResponsiveContainer width="100%" height={260}>
+                        <PieChart>
+                          <Pie data={costData.by_category.map(c => ({ name: c.category, value: Number(c.total) }))}
+                               dataKey="value" cx="50%" cy="50%" outerRadius={90}
+                               label={(e) => `${e.name}: $${(e.value / 1000).toFixed(0)}K`}>
+                            {costData.by_category.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip contentStyle={tooltipStyle} formatter={v => `$${v.toLocaleString()}`} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
+                {costData.monthly?.length > 0 && (
+                  <div className="ai-card">
+                    <div className="ai-card-header"><h3>📈 Monthly Trend</h3></div>
+                    <div className="ai-card-body">
+                      <ResponsiveContainer width="100%" height={260}>
+                        <LineChart data={costData.monthly.map(m => ({ month: m.month, total: Number(m.total) }))}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                          <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                          <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} />
+                          <Tooltip contentStyle={tooltipStyle} formatter={v => `$${v.toLocaleString()}`} />
+                          <Line type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
+              </div>
               <h3 className="section-title">Cost by Category</h3>
               <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
                 <button className="btn btn-success btn-sm" onClick={() => downloadCSV(costData.by_category, 'costs_by_category')}>Download CSV</button>
@@ -243,6 +285,30 @@ export default function Reports() {
 
           {activeTab === 'fuel' && fuelData && (
             <div>
+              {fuelData.monthly?.length > 0 && (
+                <div className="ai-card" style={{ marginBottom: 24 }}>
+                  <div className="ai-card-header"><h3>⛽ Monthly Fuel Volume & Avg MPG</h3></div>
+                  <div className="ai-card-body">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <BarChart data={fuelData.monthly.map(m => ({
+                        month: m.month,
+                        gallons: Number(m.total_gallons),
+                        mpg: Number(m.avg_mpg || 0),
+                        cost: Number(m.total_cost)
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                        <YAxis yAxisId="left" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                        <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+                        <Tooltip contentStyle={tooltipStyle} />
+                        <Legend wrapperStyle={{ color: '#cbd5e1' }} />
+                        <Bar yAxisId="left" dataKey="gallons" fill="#22c55e" name="Gallons" />
+                        <Bar yAxisId="right" dataKey="mpg" fill="#f59e0b" name="Avg MPG" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
               <h3 className="section-title">Fuel by Vehicle</h3>
               <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'flex-end' }}>
                 <button className="btn btn-success btn-sm" onClick={() => downloadCSV(fuelData.by_vehicle, 'fuel_by_vehicle')}>Download CSV</button>

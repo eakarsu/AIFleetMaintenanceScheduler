@@ -54,7 +54,7 @@ export function getMe() { return request('/auth/me'); }
 export function getDashboardStats() { return request('/dashboard/stats'); }
 
 // Vehicles
-export function getVehicles() { return request('/vehicles'); }
+export function getVehicles(page = 1, limit = 20) { return request(`/vehicles?page=${page}&limit=${limit}`); }
 export function getVehicle(id) { return request(`/vehicles/${id}`); }
 export function createVehicle(data) { return request('/vehicles', { method: 'POST', body: JSON.stringify(data) }); }
 export function updateVehicle(id, data) { return request(`/vehicles/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
@@ -89,7 +89,7 @@ export function updateWorkOrder(id, data) { return request(`/workorders/${id}`, 
 export function deleteWorkOrder(id) { return request(`/workorders/${id}`, { method: 'DELETE' }); }
 
 // Drivers
-export function getDrivers() { return request('/drivers'); }
+export function getDrivers(page = 1, limit = 20) { return request(`/drivers?page=${page}&limit=${limit}`); }
 export function getDriver(id) { return request(`/drivers/${id}`); }
 export function createDriver(data) { return request('/drivers', { method: 'POST', body: JSON.stringify(data) }); }
 export function updateDriver(id, data) { return request(`/drivers/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
@@ -144,6 +144,8 @@ export function optimizeRoute(data) { return request('/ai/route-optimization', {
 export function checkCompliance(vehicleId) { return request('/ai/compliance-check', { method: 'POST', body: JSON.stringify({ vehicle_id: vehicleId }) }); }
 export function analyzeCosts() { return request('/ai/cost-analysis', { method: 'POST', body: JSON.stringify({}) }); }
 export function analyzeDriverPerformance(driverId) { return request('/ai/driver-performance', { method: 'POST', body: JSON.stringify({ driver_id: driverId }) }); }
+export function scoreFleetReplacement(vehicleId) { return request('/ai/fleet-replacement-score', { method: 'POST', body: JSON.stringify({ vehicle_id: vehicleId }) }); }
+export function getAIResults(page = 1) { return request(`/ai/results?page=${page}&limit=20`); }
 
 // Tires
 export function getTires() { return request('/tires'); }

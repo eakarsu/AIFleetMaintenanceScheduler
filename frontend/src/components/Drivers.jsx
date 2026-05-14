@@ -14,10 +14,20 @@ export default function Drivers() {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({ ...emptyForm });
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => { fetchItems(page); }, [page]);
 
-  const fetchItems = async () => { setLoading(true); try { const d = await api.getDrivers(); setItems(Array.isArray(d) ? d : d.drivers || d.data || []); } catch (e) { console.error(e); } setLoading(false); };
+  const fetchItems = async (p = 1) => {
+    setLoading(true);
+    try {
+      const d = await api.getDrivers(p);
+      if (d && d.data) { setItems(d.data); setPagination(d.pagination); }
+      else { setItems(Array.isArray(d) ? d : d.drivers || d.data || []); }
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  };
   const handleCreate = async () => { try { await api.createDriver(formData); setIsCreating(false); setFormData({ ...emptyForm }); fetchItems(); } catch (e) { console.error(e); } };
   const handleUpdate = async () => { try { await api.updateDriver(selectedItem.id, formData); setIsEditing(false); setSelectedItem(null); fetchItems(); } catch (e) { console.error(e); } };
   const handleDelete = async (id) => { if (!confirm('Delete this driver?')) return; try { await api.deleteDriver(id); setSelectedItem(null); fetchItems(); } catch (e) { console.error(e); } };
@@ -70,7 +80,15 @@ export default function Drivers() {
               <td><span className={getBadge(item.status)}>{item.status}</span></td>
               <td>{item.rating ? `${item.rating}/5` : '-'}</td>
             </tr>
-          ))}</tbody></table></div>
+          ))}</tbody></table>
+          {pagination && pagination.totalPages > 1 && (
+            <div className="pagination-controls" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
+              <button className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>Prev</button>
+              <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>Page {pagination.page} of {pagination.totalPages} ({pagination.total} total)</span>
+              <button className="btn btn-secondary btn-sm" onClick={() => setPage(p => Math.min(pagination.totalPages, p + 1))} disabled={page >= pagination.totalPages}>Next</button>
+            </div>
+          )}
+        </div>
       )}
       {selectedItem && (
         <div className="modal-overlay" onClick={() => { setSelectedItem(null); setIsEditing(false); }}>

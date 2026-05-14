@@ -36,6 +36,46 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/parts/low-stock — parts where quantity <= min_quantity
+router.get('/low-stock', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT *, (min_quantity - quantity) AS shortfall
+      FROM parts_inventory
+      WHERE quantity <= min_quantity
+      ORDER BY shortfall DESC, name ASC
+    `);
+
+    // Create alert records for each low-stock item (if alerts table is accessible)
+    for (const part of result.rows) {
+      try {
+        await pool.query(
+          `INSERT INTO alerts (type, severity, title, message, status)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT DO NOTHING`,
+          [
+            'low_stock',
+            part.shortfall > 10 ? 'high' : 'medium',
+            `Low stock: ${part.name}`,
+            `Part ${part.part_number} (${part.name}) has ${part.quantity} units, minimum is ${part.min_quantity}. Shortfall: ${part.shortfall}.`,
+            'active'
+          ]
+        );
+      } catch (alertErr) {
+        // alerts table may have different schema; skip silently
+      }
+    }
+
+    res.json({
+      count: result.rows.length,
+      parts: result.rows
+    });
+  } catch (err) {
+    console.error('Low stock parts error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 // GET /api/parts/:id
 router.get('/:id', async (req, res) => {
   try {

@@ -1,9 +1,30 @@
 const express = require('express');
+const { body, validationResult } = require('express-validator');
 const router = express.Router();
 const pool = require('../db');
 const auth = require('../middleware/auth');
 
 router.use(auth);
+
+function handleValidation(req, res) {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ errors: errors.array() });
+  }
+  return null;
+}
+
+const maintenanceBodyValidators = [
+  body('vehicle_id').notEmpty().withMessage('vehicle_id is required').isInt({ min: 1 }).withMessage('vehicle_id must be a positive integer'),
+  body('type').notEmpty().withMessage('type is required').isString().trim(),
+  body('description').notEmpty().withMessage('description is required').isString().trim(),
+  body('status').optional().isIn(['scheduled', 'in_progress', 'completed', 'cancelled']).withMessage('invalid status'),
+  body('priority').optional().isIn(['low', 'medium', 'high', 'critical']).withMessage('invalid priority'),
+  body('scheduled_date').optional().isDate().withMessage('scheduled_date must be a valid date (YYYY-MM-DD)'),
+  body('completed_date').optional().isDate().withMessage('completed_date must be a valid date (YYYY-MM-DD)'),
+  body('cost').optional().isFloat({ min: 0 }).withMessage('cost must be a non-negative number'),
+  body('technician').optional().isString().trim()
+];
 
 // GET /api/maintenance
 router.get('/', async (req, res) => {
@@ -67,7 +88,8 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST /api/maintenance
-router.post('/', async (req, res) => {
+router.post('/', maintenanceBodyValidators, async (req, res) => {
+  if (handleValidation(req, res)) return;
   try {
     const { vehicle_id, type, description, status, priority, scheduled_date, completed_date, cost, technician, notes } = req.body;
 
@@ -86,7 +108,8 @@ router.post('/', async (req, res) => {
 });
 
 // PUT /api/maintenance/:id
-router.put('/:id', async (req, res) => {
+router.put('/:id', maintenanceBodyValidators.map(v => v.optional()), async (req, res) => {
+  if (handleValidation(req, res)) return;
   try {
     const { vehicle_id, type, description, status, priority, scheduled_date, completed_date, cost, technician, notes } = req.body;
 
@@ -131,6 +154,55 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error('Delete maintenance error:', err);
     res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// POST /api/maintenance/auto-alerts — auto-create alerts for items due in 7 days
+router.post('/auto-alerts', async (req, res) => {
+  try {
+    const dueItems = await pool.query(`
+      SELECT ms.*, v.vehicle_id AS vehicle_code, v.make, v.model
+      FROM maintenance_schedule ms
+      JOIN vehicles v ON ms.vehicle_id = v.id
+      WHERE ms.next_due <= NOW() + INTERVAL '7 days'
+        AND ms.status != 'completed'
+    `);
+
+    if (dueItems.rows.length === 0) {
+      return res.json({ message: 'No upcoming maintenance due within 7 days.', alerts_created: 0 });
+    }
+
+    let created = 0;
+    for (const item of dueItems.rows) {
+      // Check if an alert for this vehicle + service_type is already active
+      const existing = await pool.query(
+        `SELECT id FROM alerts WHERE vehicle_id = $1 AND type = 'maintenance_due' AND title = $2 AND status = 'active'`,
+        [item.vehicle_id, `Maintenance Due: ${item.service_type}`]
+      );
+      if (existing.rows.length > 0) continue;
+
+      await pool.query(
+        `INSERT INTO alerts (type, title, message, severity, vehicle_id, status, due_date, created_at)
+         VALUES ('maintenance_due', $1, $2, $3, $4, 'active', $5, NOW())`,
+        [
+          `Maintenance Due: ${item.service_type}`,
+          `${item.vehicle_code} (${item.make} ${item.model}) — ${item.service_type} due ${new Date(item.next_due).toLocaleDateString()}. Priority: ${item.priority}.`,
+          item.priority === 'critical' ? 'critical' : item.priority === 'high' ? 'high' : 'medium',
+          item.vehicle_id,
+          item.next_due
+        ]
+      );
+      created++;
+    }
+
+    res.json({
+      message: `Auto-alerts completed.`,
+      due_items_found: dueItems.rows.length,
+      alerts_created: created
+    });
+  } catch (err) {
+    console.error('Auto-alerts error:', err);
+    res.status(500).json({ error: err.message || 'Failed to create auto-alerts.' });
   }
 });
 

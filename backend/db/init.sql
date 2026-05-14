@@ -345,3 +345,26 @@ CREATE TABLE IF NOT EXISTS trip_logs (
   notes TEXT,
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- AI Predictions — stores all AI analysis results linked to vehicles/drivers
+CREATE TABLE IF NOT EXISTS ai_predictions (
+  id SERIAL PRIMARY KEY,
+  prediction_type VARCHAR(100) NOT NULL,
+  vehicle_id INTEGER REFERENCES vehicles(id) ON DELETE SET NULL,
+  driver_id INTEGER REFERENCES drivers(id) ON DELETE SET NULL,
+  input_snapshot JSONB,
+  analysis TEXT NOT NULL,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ai_results (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER,
+  vehicle_id INTEGER,
+  driver_id INTEGER,
+  endpoint VARCHAR(100),
+  input_data JSONB,
+  result TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
