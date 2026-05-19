@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3001;
 // CORS — use CORS_ORIGIN env var (comma-separated) so prod origin can be injected
 const allowedOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
-  : ['http://localhost:3000'];
+  : ['http://localhost:3000', 'http://localhost:3500'];
 
 app.use(helmet());
 app.use(cors({
@@ -77,6 +77,7 @@ app.use('/api/driver-behavior-analytics', require('./routes/driverBehaviorAnalyt
 app.use('/api/warranty-management', require('./routes/warrantyManagement'));
 app.use('/api/parts-availability', require('./routes/partsAvailability'));
 app.use('/api/technician-utilization', require('./routes/technicianUtilization'));
+app.use('/api/custom-views', require('./routes/customViews'));
 
 // Health check
 app.get('/api/health', (req, res) => {

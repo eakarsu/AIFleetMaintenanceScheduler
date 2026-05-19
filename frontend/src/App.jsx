@@ -28,6 +28,7 @@ import ServiceReminders from './components/ServiceReminders';
 import FleetOverview from './components/FleetOverview';
 import Profile from './components/Profile';
 import ActivityLog from './components/ActivityLog';
+import CustomViewsPage from './components/CustomViewsPage';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
@@ -77,6 +78,7 @@ export default function App() {
     { path: '/ai-insights', label: 'AI Insights', icon: '🤖' },
     { path: '/ai-advanced', label: 'AI Advanced', icon: '🧠' },
     { path: '/ai-history', label: 'AI History', icon: '📜' },
+    { path: '/custom-views', label: 'Maintenance Views', icon: '🛠️' },
   ];
 
   if (isLoginPage) {
@@ -158,6 +160,7 @@ export default function App() {
           <Route path="/ai-insights" element={<ProtectedRoute><AIInsights /></ProtectedRoute>} />
           <Route path="/ai-advanced" element={<ProtectedRoute><AIAdvanced /></ProtectedRoute>} />
           <Route path="/ai-history" element={<ProtectedRoute><AIHistory /></ProtectedRoute>} />
+          <Route path="/custom-views" element={<ProtectedRoute><CustomViewsPage /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
