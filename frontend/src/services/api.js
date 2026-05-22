@@ -153,6 +153,8 @@ export function getTire(id) { return request(`/tires/${id}`); }
 export function createTire(data) { return request('/tires', { method: 'POST', body: JSON.stringify(data) }); }
 export function updateTire(id, data) { return request(`/tires/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
 export function deleteTire(id) { return request(`/tires/${id}`, { method: 'DELETE' }); }
+export function getTireRotationCompliance() { return request('/tire-rotation-compliance'); }
+export function createTireRotationCompliance(data) { return request('/tire-rotation-compliance', { method: 'POST', body: JSON.stringify(data) }); }
 
 // Inspections
 export function getInspections() { return request('/inspections'); }

@@ -18,7 +18,7 @@ router.post('/strategy', async (req, res) => {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: process.env.OPENROUTER_MODEL || 'anthropic/claude-3-5-sonnet-20241022',
+        model: process.env.OPENROUTER_MODEL || 'anthropic/claude-haiku-4.5',
         messages: [
           { role: 'system', content: 'You are a fleet maintenance director. Output JSON {"strategy":"...","pm_schedule_changes":["..."],"budget_estimate":num,"top_failure_modes":[{"type":"...","priority":"..."}]}.' },
           { role: 'user', content: JSON.stringify({ ...body, top_failures: failures.rows }) },

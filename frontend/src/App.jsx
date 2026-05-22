@@ -29,6 +29,10 @@ import FleetOverview from './components/FleetOverview';
 import Profile from './components/Profile';
 import ActivityLog from './components/ActivityLog';
 import CustomViewsPage from './components/CustomViewsPage';
+import TireRotationCompliance from './components/TireRotationCompliance';
+
+import CodexCustomVizFeature from './pages/CodexCustomVizFeature';
+import CodexOperationsFeature from './pages/CodexOperationsFeature';
 
 function ProtectedRoute({ children }) {
   const token = localStorage.getItem('token');
@@ -65,6 +69,7 @@ export default function App() {
     { path: '/costs', label: 'Costs', icon: '💰' },
     { path: '/alerts', label: 'Alerts', icon: '🔔' },
     { path: '/tires', label: 'Tires', icon: '🛞' },
+    { path: '/tire-rotation-compliance', label: 'Tire Rotation', icon: '🛞' },
     { path: '/inspections', label: 'Inspections', icon: '✅' },
     { path: '/warranties', label: 'Warranties', icon: '🛡️' },
     { path: '/vendors', label: 'Vendors', icon: '🏢' },
@@ -84,6 +89,9 @@ export default function App() {
   if (isLoginPage) {
     return (
       <Routes>
+        <Route path="/codex/custom-viz" element={<ProtectedRoute><CodexCustomVizFeature /></ProtectedRoute>} />
+        <Route path="/codex/operations" element={<ProtectedRoute><CodexOperationsFeature /></ProtectedRoute>} />
+
         <Route path="/login" element={<Login />} />
       </Routes>
     );
@@ -147,6 +155,7 @@ export default function App() {
           <Route path="/costs" element={<ProtectedRoute><Costs /></ProtectedRoute>} />
           <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
           <Route path="/tires" element={<ProtectedRoute><Tires /></ProtectedRoute>} />
+          <Route path="/tire-rotation-compliance" element={<ProtectedRoute><TireRotationCompliance /></ProtectedRoute>} />
           <Route path="/inspections" element={<ProtectedRoute><Inspections /></ProtectedRoute>} />
           <Route path="/warranties" element={<ProtectedRoute><Warranties /></ProtectedRoute>} />
           <Route path="/vendors" element={<ProtectedRoute><Vendors /></ProtectedRoute>} />

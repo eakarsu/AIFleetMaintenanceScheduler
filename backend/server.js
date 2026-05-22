@@ -77,6 +77,7 @@ app.use('/api/driver-behavior-analytics', require('./routes/driverBehaviorAnalyt
 app.use('/api/warranty-management', require('./routes/warrantyManagement'));
 app.use('/api/parts-availability', require('./routes/partsAvailability'));
 app.use('/api/technician-utilization', require('./routes/technicianUtilization'));
+app.use('/api/tire-rotation-compliance', require('./routes/tireRotationCompliance'));
 app.use('/api/custom-views', require('./routes/customViews'));
 
 // Health check
