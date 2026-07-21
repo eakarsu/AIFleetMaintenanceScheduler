@@ -4,7 +4,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const initializeDb = require('./db/initializeDb');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -79,6 +78,7 @@ app.use('/api/parts-availability', require('./routes/partsAvailability'));
 app.use('/api/technician-utilization', require('./routes/technicianUtilization'));
 app.use('/api/tire-rotation-compliance', require('./routes/tireRotationCompliance'));
 app.use('/api/custom-views', require('./routes/customViews'));
+app.use('/api/governed-maintenance-plans', require('./routes/governedMaintenance'));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -99,20 +99,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Initialize DB tables before accepting connections
-initializeDb().then(() => {
-  
-// === Batch 03 Gaps & Frontend Mounts ===
-try {
-  const _batch03 = require('./routes/batch03Gaps');
-  if (typeof authenticateToken === 'function') app.use('/api', authenticateToken, _batch03);
-  else app.use('/api', _batch03);
-} catch (_e) { /* batch03 gap routes optional */ }
-
 app.listen(PORT, () => {
-    console.log(`Fleet Maintenance API server running on port ${PORT}`);
-    console.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
-  });
+  console.log(`Fleet Maintenance API server running on port ${PORT}`);
+  console.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
 });
 
 module.exports = app;
