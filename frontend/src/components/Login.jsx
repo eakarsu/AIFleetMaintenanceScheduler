@@ -27,9 +27,6 @@ export default function Login() {
   const handleQuickLogin = () => {
     setEmail(import.meta.env.VITE_DEMO_EMAIL || '');
     setPassword(import.meta.env.VITE_DEMO_PASSWORD || '');
-    setTimeout(() => {
-      document.getElementById('login-form').requestSubmit();
-    }, 100);
   };
 
   return (
@@ -66,7 +63,7 @@ export default function Login() {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
           <button type="button" className="btn btn-quick" onClick={handleQuickLogin}>
-            Quick Login (Demo)
+            Auto Fill Demo Credentials
           </button>
         </form>
       </div>
