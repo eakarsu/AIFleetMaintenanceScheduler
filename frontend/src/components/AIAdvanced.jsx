@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import NativeAIReport from "./NativeAIReport";
+import NativeAIControls from "./NativeAIControls";
+import useNativeAIRequest from "./useNativeAIRequest";
+import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import * as api from '../services/api';
 
@@ -68,28 +71,14 @@ function AIBlock({ title, icon, children }) {
   );
 }
 
-function ResponseView({ data, loading, error }) {
-  if (loading) {
-    return (
-      <div className="ai-loading">
-        <div className="spinner"></div>
-        <span className="ai-loading-text">AI is analyzing...</span>
-      </div>
-    );
-  }
-  if (error) {
-    return <div className="ai-response"><p style={{ color: 'var(--accent-red)' }}>{error}</p></div>;
-  }
-  if (!data) return null;
-  const content = pickContent(data);
-  return (
-    <div className="ai-response">
-      <ReactMarkdown>{content}</ReactMarkdown>
-    </div>
-  );
-}
+function ResponseView({ data, loading, error }) { return <NativeAIReport response={data} loading={loading} error={error} />; }
 
 export default function AIAdvanced() {
+  const nativeAIRequest = useNativeAIRequest();
+
+  const [vehicles, setVehicles] = useState([]);
+  useEffect(() => { let active = true; api.getVehicles().then(response => { if (active) setVehicles(Array.isArray(response) ? response : response?.data || response?.vehicles || []); }).catch(() => { if (active) setVehicles([]); }); return () => { active = false; }; }, []);
+
   // Parts order predict
   const [partsForm, setPartsForm] = useState({ lookback_days: 30, horizon_days: 30 });
   const [partsData, setPartsData] = useState(null);
@@ -108,15 +97,15 @@ export default function AIAdvanced() {
   const [warrantyLoading, setWarrantyLoading] = useState(false);
   const [warrantyError, setWarrantyError] = useState('');
 
-  const callApi = async (path, body) => {
-    const res = await fetch(`/api${path}`, {
+  const callApi = async (path, body, nativeRequestOptions = {}) => {
+    const res = await fetch(`/api${path}`, { ...({
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${localStorage.getItem('token')}`,
       },
       body: JSON.stringify(body || {}),
-    });
+    }), ...(nativeRequestOptions) });
     if (res.status === 401) {
       localStorage.removeItem('token');
       window.location.href = '/login';
@@ -132,10 +121,10 @@ export default function AIAdvanced() {
   const runParts = async () => {
     setPartsLoading(true); setPartsError(''); setPartsData(null);
     try {
-      const res = await callApi('/ai/parts-order-predict', {
+      const res = await nativeAIRequest.run((signal) => callApi('/ai/parts-order-predict', {
         lookback_days: Number(partsForm.lookback_days) || 30,
         horizon_days: Number(partsForm.horizon_days) || 30,
-      });
+      }, { signal }));
       setPartsData(res);
     } catch (e) { setPartsError(e.message); } finally { setPartsLoading(false); }
   };
@@ -143,7 +132,7 @@ export default function AIAdvanced() {
   const runTech = async () => {
     setTechLoading(true); setTechError(''); setTechData(null);
     try {
-      const res = await callApi('/ai/technician-assign-optimize', { notes: techNotes });
+      const res = await nativeAIRequest.run((signal) => callApi('/ai/technician-assign-optimize', { notes: techNotes }, { signal }));
       setTechData(res);
     } catch (e) { setTechError(e.message); } finally { setTechLoading(false); }
   };
@@ -152,11 +141,11 @@ export default function AIAdvanced() {
     if (!warrantyForm.vehicle_id) { setWarrantyError('Vehicle ID is required'); return; }
     setWarrantyLoading(true); setWarrantyError(''); setWarrantyData(null);
     try {
-      const res = await callApi('/ai/warranty-claim-assist', {
+      const res = await nativeAIRequest.run((signal) => callApi('/ai/warranty-claim-assist', {
         vehicle_id: Number(warrantyForm.vehicle_id),
         issue_description: warrantyForm.issue_description,
         incident_date: warrantyForm.incident_date,
-      });
+      }, { signal }));
       setWarrantyData(res);
     } catch (e) { setWarrantyError(e.message); } finally { setWarrantyLoading(false); }
   };
@@ -166,7 +155,7 @@ export default function AIAdvanced() {
   void api;
 
   return (
-    <div className="page-container">
+    <NativeAIControls busy={nativeAIRequest.busy} onCancel={nativeAIRequest.cancel} context="Fleet Maintenance Scheduler"><div className="page-container">
       <div className="page-header">
         <h1>🤖 AI Advanced</h1>
         <p>Parts ordering, technician assignment, and warranty claim assistant</p>
@@ -177,12 +166,12 @@ export default function AIAdvanced() {
           <div className="form-row">
             <div className="form-group">
               <label>Lookback days</label>
-              <input type="number" min="1" value={partsForm.lookback_days}
+              <input data-ai-field="lookback_days" type="number" min="1" value={partsForm.lookback_days}
                 onChange={(e) => setPartsForm({ ...partsForm, lookback_days: e.target.value })} />
             </div>
             <div className="form-group">
               <label>Horizon days</label>
-              <input type="number" min="1" value={partsForm.horizon_days}
+              <input data-ai-field="horizon_days" type="number" min="1" value={partsForm.horizon_days}
                 onChange={(e) => setPartsForm({ ...partsForm, horizon_days: e.target.value })} />
             </div>
           </div>
@@ -195,7 +184,7 @@ export default function AIAdvanced() {
         <AIBlock title="Technician Assignment Optimize" icon="🔧">
           <div className="form-group">
             <label>Notes / constraints (optional)</label>
-            <textarea
+            <textarea data-ai-field="techNotes"
               rows={3}
               placeholder="Specializations, shift constraints, geography..."
               value={techNotes}
@@ -212,30 +201,30 @@ export default function AIAdvanced() {
           <div className="form-row">
             <div className="form-group">
               <label>Vehicle ID</label>
-              <input type="number" value={warrantyForm.vehicle_id}
-                onChange={(e) => setWarrantyForm({ ...warrantyForm, vehicle_id: e.target.value })} />
+              <select data-ai-field="vehicle_id" value={warrantyForm.vehicle_id} onChange={(e) => setWarrantyForm({ ...warrantyForm, vehicle_id: e.target.value })}><option value="">Choose an actual accessible vehicle</option>{vehicles.map(vehicle => <option key={vehicle.id} value={vehicle.id}>{vehicle.vehicle_id || vehicle.make || 'Vehicle'} · {vehicle.id}</option>)}</select>
+              {!vehicles.length && <p role="status">An actual accessible vehicle is required for the warranty assessment. Add or select the source vehicle before generating.</p>}
             </div>
             <div className="form-group">
               <label>Incident date</label>
-              <input type="date" value={warrantyForm.incident_date}
+              <input data-ai-field="incident_date" type="date" value={warrantyForm.incident_date}
                 onChange={(e) => setWarrantyForm({ ...warrantyForm, incident_date: e.target.value })} />
             </div>
           </div>
           <div className="form-group">
             <label>Issue description</label>
-            <textarea
+            <textarea data-ai-field="issue_description"
               rows={3}
               placeholder="Failure mode, symptoms, mileage at failure..."
               value={warrantyForm.issue_description}
               onChange={(e) => setWarrantyForm({ ...warrantyForm, issue_description: e.target.value })}
             />
           </div>
-          <button className="btn btn-primary" onClick={runWarranty} disabled={warrantyLoading}>
+          <button className="btn btn-primary" onClick={runWarranty} disabled={warrantyLoading || !warrantyForm.vehicle_id}>
             {warrantyLoading ? 'Assessing...' : 'Assess & Draft Claim'}
           </button>
           <ResponseView data={warrantyData} loading={warrantyLoading} error={warrantyError} />
         </AIBlock>
       </div>
-    </div>
+    </div></NativeAIControls>
   );
 }

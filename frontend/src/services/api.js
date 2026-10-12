@@ -138,13 +138,13 @@ export function updateAlert(id, data) { return request(`/alerts/${id}`, { method
 export function deleteAlert(id) { return request(`/alerts/${id}`, { method: 'DELETE' }); }
 
 // AI
-export function predictMaintenance(vehicleId) { return request('/ai/predictive-maintenance', { method: 'POST', body: JSON.stringify({ vehicle_id: vehicleId }) }); }
-export function getFleetAnalytics() { return request('/ai/fleet-analytics', { method: 'POST', body: JSON.stringify({}) }); }
-export function optimizeRoute(data) { return request('/ai/route-optimization', { method: 'POST', body: JSON.stringify(data) }); }
-export function checkCompliance(vehicleId) { return request('/ai/compliance-check', { method: 'POST', body: JSON.stringify({ vehicle_id: vehicleId }) }); }
-export function analyzeCosts() { return request('/ai/cost-analysis', { method: 'POST', body: JSON.stringify({}) }); }
-export function analyzeDriverPerformance(driverId) { return request('/ai/driver-performance', { method: 'POST', body: JSON.stringify({ driver_id: driverId }) }); }
-export function scoreFleetReplacement(vehicleId) { return request('/ai/fleet-replacement-score', { method: 'POST', body: JSON.stringify({ vehicle_id: vehicleId }) }); }
+export function predictMaintenance(vehicleId, nativeRequestOptions = {}) { return request('/ai/predictive-maintenance', { ...({ method: 'POST', body: JSON.stringify({ vehicle_id: vehicleId }) }), ...(nativeRequestOptions) }); }
+export function getFleetAnalytics(nativeRequestOptions = {}) { return request('/ai/fleet-analytics', { ...({ method: 'POST', body: JSON.stringify({}) }), ...(nativeRequestOptions) }); }
+export function optimizeRoute(data, nativeRequestOptions = {}) { return request('/ai/route-optimization', { ...({ method: 'POST', body: JSON.stringify(data) }), ...(nativeRequestOptions) }); }
+export function checkCompliance(vehicleId, nativeRequestOptions = {}) { return request('/ai/compliance-check', { ...({ method: 'POST', body: JSON.stringify({ vehicle_id: vehicleId }) }), ...(nativeRequestOptions) }); }
+export function analyzeCosts(nativeRequestOptions = {}) { return request('/ai/cost-analysis', { ...({ method: 'POST', body: JSON.stringify({}) }), ...(nativeRequestOptions) }); }
+export function analyzeDriverPerformance(driverId, nativeRequestOptions = {}) { return request('/ai/driver-performance', { ...({ method: 'POST', body: JSON.stringify({ driver_id: driverId }) }), ...(nativeRequestOptions) }); }
+export function scoreFleetReplacement(vehicleId, nativeRequestOptions = {}) { return request('/ai/fleet-replacement-score', { ...({ method: 'POST', body: JSON.stringify({ vehicle_id: vehicleId }) }), ...(nativeRequestOptions) }); }
 export function getAIResults(page = 1) { return request(`/ai/results?page=${page}&limit=20`); }
 
 // Tires

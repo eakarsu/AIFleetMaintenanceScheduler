@@ -1,3 +1,6 @@
+import NativeAIReport from "./NativeAIReport";
+import NativeAIControls from "./NativeAIControls";
+import useNativeAIRequest from "./useNativeAIRequest";
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import * as api from '../services/api';
@@ -15,58 +18,7 @@ function AISection({ title, icon, children }) {
   );
 }
 
-function AIResponse({ data, loading, error }) {
-  if (loading) {
-    return (
-      <div className="ai-loading">
-        <div className="spinner"></div>
-        <span className="ai-loading-text">AI is analyzing...</span>
-      </div>
-    );
-  }
-  if (error) {
-    return <div className="ai-response"><p style={{ color: 'var(--accent-red)' }}>{error}</p></div>;
-  }
-  if (!data) return null;
-
-  // Extract markdown content from various response shapes
-  let content = '';
-  if (typeof data === 'string') {
-    content = data;
-  } else if (data.analysis) {
-    content = typeof data.analysis === 'string' ? data.analysis : JSON.stringify(data.analysis, null, 2);
-  } else if (data.result) {
-    content = typeof data.result === 'string' ? data.result : JSON.stringify(data.result, null, 2);
-  } else if (data.report) {
-    content = typeof data.report === 'string' ? data.report : JSON.stringify(data.report, null, 2);
-  } else if (data.recommendations) {
-    content = typeof data.recommendations === 'string' ? data.recommendations : JSON.stringify(data.recommendations, null, 2);
-  } else if (data.response) {
-    content = typeof data.response === 'string' ? data.response : JSON.stringify(data.response, null, 2);
-  } else if (data.data) {
-    content = typeof data.data === 'string' ? data.data : JSON.stringify(data.data, null, 2);
-  } else if (data.message) {
-    content = data.message;
-  } else {
-    content = JSON.stringify(data, null, 2);
-  }
-
-  // If content looks like JSON, try to format it nicely as markdown
-  if (content.startsWith('{') || content.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(content);
-      content = jsonToMarkdown(parsed);
-    } catch (e) {
-      // keep as-is
-    }
-  }
-
-  return (
-    <div className="ai-response">
-      <ReactMarkdown>{content}</ReactMarkdown>
-    </div>
-  );
-}
+function AIResponse({ data, loading, error }) { return <NativeAIReport response={data} loading={loading} error={error} />; }
 
 function jsonToMarkdown(obj, depth = 0) {
   if (typeof obj === 'string') return obj;
@@ -119,7 +71,7 @@ function PredictiveMaintenanceDisplay({ data }) {
             <strong style={{ display: 'block', marginBottom: '6px' }}>Predicted Failures</strong>
             {parsed.predicted_failures.map((f, i) => (
               <div key={i} style={{ padding: '6px 10px', marginBottom: '4px', background: 'var(--surface-raised, #f3f4f6)', borderRadius: '4px', fontSize: '0.875rem' }}>
-                {typeof f === 'string' ? f : JSON.stringify(f)}
+                <NativeAIReport response={f} />
               </div>
             ))}
           </div>
@@ -129,7 +81,7 @@ function PredictiveMaintenanceDisplay({ data }) {
             <strong style={{ display: 'block', marginBottom: '6px' }}>Recommended Actions</strong>
             {parsed.recommended_actions.map((a, i) => (
               <div key={i} style={{ padding: '6px 10px', marginBottom: '4px', background: '#dcfce720', border: '1px solid #16a34a40', borderRadius: '4px', fontSize: '0.875rem' }}>
-                {typeof a === 'string' ? a : JSON.stringify(a)}
+                <NativeAIReport response={a} />
               </div>
             ))}
           </div>
@@ -247,6 +199,8 @@ function FleetReplacementDisplay({ data, loading, error }) {
 }
 
 export default function AIInsights() {
+  const nativeAIRequest = useNativeAIRequest();
+
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
 
@@ -295,51 +249,51 @@ export default function AIInsights() {
   const handlePredict = async () => {
     if (!predictVehicle) return;
     setPredictLoading(true); setPredictError(''); setPredictData(null);
-    try { const d = await api.predictMaintenance(predictVehicle); setPredictData(d); } catch (e) { setPredictError(e.message); }
+    try { const d = await nativeAIRequest.run((signal) => api.predictMaintenance(predictVehicle, { signal })); setPredictData(d); } catch (e) { setPredictError(e.message); }
     setPredictLoading(false);
   };
 
   const handleAnalytics = async () => {
     setAnalyticsLoading(true); setAnalyticsError(''); setAnalyticsData(null);
-    try { const d = await api.getFleetAnalytics(); setAnalyticsData(d); } catch (e) { setAnalyticsError(e.message); }
+    try { const d = await nativeAIRequest.run((signal) => api.getFleetAnalytics({ signal })); setAnalyticsData(d); } catch (e) { setAnalyticsError(e.message); }
     setAnalyticsLoading(false);
   };
 
   const handleRoute = async () => {
     setRouteLoading(true); setRouteError(''); setRouteData(null);
-    try { const d = await api.optimizeRoute(routeForm); setRouteData(d); } catch (e) { setRouteError(e.message); }
+    try { const d = await nativeAIRequest.run((signal) => api.optimizeRoute(routeForm, { signal })); setRouteData(d); } catch (e) { setRouteError(e.message); }
     setRouteLoading(false);
   };
 
   const handleCompliance = async () => {
     if (!complianceVehicle) return;
     setComplianceLoading(true); setComplianceError(''); setComplianceData(null);
-    try { const d = await api.checkCompliance(complianceVehicle); setComplianceData(d); } catch (e) { setComplianceError(e.message); }
+    try { const d = await nativeAIRequest.run((signal) => api.checkCompliance(complianceVehicle, { signal })); setComplianceData(d); } catch (e) { setComplianceError(e.message); }
     setComplianceLoading(false);
   };
 
   const handleCost = async () => {
     setCostLoading(true); setCostError(''); setCostData(null);
-    try { const d = await api.analyzeCosts(); setCostData(d); } catch (e) { setCostError(e.message); }
+    try { const d = await nativeAIRequest.run((signal) => api.analyzeCosts({ signal })); setCostData(d); } catch (e) { setCostError(e.message); }
     setCostLoading(false);
   };
 
   const handleDriver = async () => {
     if (!driverSelect) return;
     setDriverLoading(true); setDriverError(''); setDriverData(null);
-    try { const d = await api.analyzeDriverPerformance(driverSelect); setDriverData(d); } catch (e) { setDriverError(e.message); }
+    try { const d = await nativeAIRequest.run((signal) => api.analyzeDriverPerformance(driverSelect, { signal })); setDriverData(d); } catch (e) { setDriverError(e.message); }
     setDriverLoading(false);
   };
 
   const handleReplacement = async () => {
     if (!replacementVehicle) return;
     setReplacementLoading(true); setReplacementError(''); setReplacementData(null);
-    try { const d = await api.scoreFleetReplacement(replacementVehicle); setReplacementData(d); } catch (e) { setReplacementError(e.message); }
+    try { const d = await nativeAIRequest.run((signal) => api.scoreFleetReplacement(replacementVehicle, { signal })); setReplacementData(d); } catch (e) { setReplacementError(e.message); }
     setReplacementLoading(false);
   };
 
   return (
-    <div>
+    <NativeAIControls busy={nativeAIRequest.busy} onCancel={nativeAIRequest.cancel} context="Fleet Maintenance Scheduler"><div>
       <div className="page-header">
         <h1><span className="header-icon">🤖</span>AI Insights</h1>
       </div>
@@ -350,7 +304,7 @@ export default function AIInsights() {
           <div className="ai-form">
             <div className="form-group">
               <label>Select Vehicle</label>
-              <select value={predictVehicle} onChange={e => setPredictVehicle(e.target.value)}>
+              <select data-ai-field="predictVehicle" value={predictVehicle} onChange={e => setPredictVehicle(e.target.value)}>
                 <option value="">Choose a vehicle...</option>
                 {vehicles.map(v => <option key={v.id} value={v.id}>{v.vehicle_id} - {v.make} {v.model}</option>)}
               </select>
@@ -379,22 +333,22 @@ export default function AIInsights() {
           <div className="ai-form">
             <div className="form-group">
               <label>Vehicle</label>
-              <select value={routeForm.vehicle_id} onChange={e => setRouteForm(p => ({ ...p, vehicle_id: e.target.value }))}>
+              <select data-ai-field="vehicle_id" value={routeForm.vehicle_id} onChange={e => setRouteForm(p => ({ ...p, vehicle_id: e.target.value }))}>
                 <option value="">Select...</option>
                 {vehicles.map(v => <option key={v.id} value={v.id}>{v.vehicle_id} - {v.make} {v.model}</option>)}
               </select>
             </div>
             <div className="form-group">
               <label>Origin</label>
-              <input value={routeForm.origin} onChange={e => setRouteForm(p => ({ ...p, origin: e.target.value }))} placeholder="Starting point" />
+              <input data-ai-field="origin" value={routeForm.origin} onChange={e => setRouteForm(p => ({ ...p, origin: e.target.value }))} placeholder="Starting point" />
             </div>
             <div className="form-group">
               <label>Destination</label>
-              <input value={routeForm.destination} onChange={e => setRouteForm(p => ({ ...p, destination: e.target.value }))} placeholder="End point" />
+              <input data-ai-field="destination" value={routeForm.destination} onChange={e => setRouteForm(p => ({ ...p, destination: e.target.value }))} placeholder="End point" />
             </div>
             <div className="form-group">
               <label>Cargo Type</label>
-              <input value={routeForm.cargo_type} onChange={e => setRouteForm(p => ({ ...p, cargo_type: e.target.value }))} placeholder="e.g. refrigerated" />
+              <input data-ai-field="cargo_type" value={routeForm.cargo_type} onChange={e => setRouteForm(p => ({ ...p, cargo_type: e.target.value }))} placeholder="e.g. refrigerated" />
             </div>
             <button className="btn btn-primary" onClick={handleRoute} disabled={routeLoading}>
               Optimize
@@ -408,7 +362,7 @@ export default function AIInsights() {
           <div className="ai-form">
             <div className="form-group">
               <label>Select Vehicle</label>
-              <select value={complianceVehicle} onChange={e => setComplianceVehicle(e.target.value)}>
+              <select data-ai-field="complianceVehicle" value={complianceVehicle} onChange={e => setComplianceVehicle(e.target.value)}>
                 <option value="">Choose a vehicle...</option>
                 {vehicles.map(v => <option key={v.id} value={v.id}>{v.vehicle_id} - {v.make} {v.model}</option>)}
               </select>
@@ -437,7 +391,7 @@ export default function AIInsights() {
           <div className="ai-form">
             <div className="form-group">
               <label>Select Driver</label>
-              <select value={driverSelect} onChange={e => setDriverSelect(e.target.value)}>
+              <select data-ai-field="driverSelect" value={driverSelect} onChange={e => setDriverSelect(e.target.value)}>
                 <option value="">Choose a driver...</option>
                 {drivers.map(d => <option key={d.id} value={d.id}>{d.first_name} {d.last_name} ({d.employee_id})</option>)}
               </select>
@@ -454,7 +408,7 @@ export default function AIInsights() {
           <div className="ai-form">
             <div className="form-group">
               <label>Select Vehicle</label>
-              <select value={replacementVehicle} onChange={e => setReplacementVehicle(e.target.value)}>
+              <select data-ai-field="replacementVehicle" value={replacementVehicle} onChange={e => setReplacementVehicle(e.target.value)}>
                 <option value="">Choose a vehicle...</option>
                 {vehicles.map(v => <option key={v.id} value={v.id}>{v.vehicle_id} - {v.make} {v.model} ({v.year})</option>)}
               </select>
@@ -466,6 +420,6 @@ export default function AIInsights() {
           <FleetReplacementDisplay data={replacementData} loading={replacementLoading} error={replacementError} />
         </AISection>
       </div>
-    </div>
+    </div></NativeAIControls>
   );
 }

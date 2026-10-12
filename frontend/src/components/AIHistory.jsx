@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import * as api from '../services/api';
+import NativeAIReport, { reportText, reportValue } from './NativeAIReport';
 
 export default function AIHistory() {
   const [results, setResults] = useState([]);
@@ -33,6 +34,11 @@ export default function AIHistory() {
     return labels[endpoint] || endpoint;
   };
 
+  const resultPreview = (result) => {
+    const text = reportText(reportValue(result)).replace(/\s+/g, ' ').trim();
+    return text ? `${text.slice(0, 100)}${text.length > 100 ? '…' : ''}` : '—';
+  };
+
   if (loading) return <div className="loading-container"><div className="spinner"></div><span>Loading AI history...</span></div>;
 
   return (
@@ -61,14 +67,14 @@ export default function AIHistory() {
             </thead>
             <tbody>
               {results.map(r => (
-                <>
-                  <tr key={r.id}>
+                <Fragment key={r.id}>
+                  <tr>
                     <td><span className="badge badge-active">{endpointLabel(r.endpoint)}</span></td>
                     <td>{r.vehicle_code ? `${r.vehicle_code} – ${r.make} ${r.model}` : '—'}</td>
                     <td>{r.driver_name || '—'}</td>
                     <td>{new Date(r.created_at).toLocaleString()}</td>
                     <td style={{ maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {r.result ? r.result.substring(0, 100) + '…' : '—'}
+                      {resultPreview(r.result)}
                     </td>
                     <td>
                       <button
@@ -80,24 +86,21 @@ export default function AIHistory() {
                     </td>
                   </tr>
                   {expandedId === r.id && (
-                    <tr key={`expanded-${r.id}`}>
+                    <tr>
                       <td colSpan={6}>
-                        <div style={{ background: 'var(--surface-raised, #f8f9fa)', padding: '16px', borderRadius: '6px', margin: '4px 0', maxHeight: '400px', overflowY: 'auto' }}>
-                          <div style={{ display: 'flex', gap: '16px', marginBottom: '12px', flexWrap: 'wrap' }}>
-                            {r.input_data && Object.keys(r.input_data).length > 0 && (
-                              <div>
-                                <strong style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Input</strong>
-                                <pre style={{ fontSize: '0.8rem', margin: '4px 0 0' }}>{JSON.stringify(r.input_data, null, 2)}</pre>
-                              </div>
-                            )}
-                          </div>
-                          <strong style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>Full Result</strong>
-                          <pre style={{ fontSize: '0.85rem', whiteSpace: 'pre-wrap', margin: '4px 0 0', lineHeight: 1.5 }}>{r.result}</pre>
+                        <div className="ai-history" style={{ margin: '4px 0' }}>
+                          {r.input_data && Object.keys(r.input_data).length > 0 && (
+                            <details style={{ marginBottom: 16 }}>
+                              <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Request input</summary>
+                              <NativeAIReport response={r.input_data} title="Request input" />
+                            </details>
+                          )}
+                          <NativeAIReport response={r.result} title={endpointLabel(r.endpoint)} />
                         </div>
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

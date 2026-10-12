@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as api from '../services/api';
 
+const DEMO_EMAIL = import.meta.env.VITE_DEMO_EMAIL || '';
+const DEMO_PASSWORD = import.meta.env.VITE_DEMO_PASSWORD || '';
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,9 +27,14 @@ export default function Login() {
     setLoading(false);
   };
 
-  const handleQuickLogin = () => {
-    setEmail(import.meta.env.VITE_DEMO_EMAIL || '');
-    setPassword(import.meta.env.VITE_DEMO_PASSWORD || '');
+  const fillDemoCredentials = () => {
+    if (!DEMO_EMAIL || !DEMO_PASSWORD) {
+      setError('Demo credentials are unavailable in this environment.');
+      return;
+    }
+    setEmail(DEMO_EMAIL);
+    setPassword(DEMO_PASSWORD);
+    setError('');
   };
 
   return (
@@ -62,8 +70,13 @@ export default function Login() {
           <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
-          <button type="button" className="btn btn-quick" onClick={handleQuickLogin}>
-            Auto Fill Demo Credentials
+          <button
+            type="button"
+            className="btn btn-quick"
+            onClick={fillDemoCredentials}
+            disabled={loading}
+          >
+            Fill Demo Credentials
           </button>
         </form>
       </div>
